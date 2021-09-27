@@ -42,17 +42,24 @@ class Buffer(SerializedBuffer):
     :param action_shape: 行为空间纬度
     """
 
-    def __init__(self, buffer_size, state_shape, action_shape, device):
+    def __init__(self, buffer_size, state_shape, action_shape, device, discrete=False):
         super().__init__(None, device)
         self._n = 0  # kkkk
         self._p = 0
         self.buffer_size = buffer_size
         self.device = device
+        self.discrete = discrete  # 动作空间是否离散
 
         self.states = torch.empty(
             (buffer_size, *state_shape), dtype=torch.float, device=device)
-        self.actions = torch.empty(
-            (buffer_size, *action_shape), dtype=torch.float, device=device)
+
+        if not discrete:
+            self.actions = torch.empty(
+                (buffer_size, *action_shape), dtype=torch.float, device=device)
+        else:
+            self.actions = torch.empty(
+                (buffer_size, 1), dtype=torch.float, device=device)
+
         self.rewards = torch.empty(
             (buffer_size, 1), dtype=torch.float, device=device)
         self.dones = torch.empty(
@@ -62,7 +69,11 @@ class Buffer(SerializedBuffer):
 
     def append(self, state, action, reward, done, next_state):
         self.states[self._p].copy_(torch.from_numpy(state))
-        self.actions[self._p].copy_(torch.from_numpy(action))
+        if not self.discrete:
+            self.actions[self._p].copy_(torch.from_numpy(action))
+        else:
+            self.actions[self._p] = float(action)
+
         self.rewards[self._p] = float(reward)
         self.dones[self._p] = float(done)
         self.next_states[self._p].copy_(torch.from_numpy(next_state))

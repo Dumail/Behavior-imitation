@@ -44,11 +44,11 @@ def run(args):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--buffer', type=str, default='buffers/InvertedPendulumMuJoCoEnv-v0/size1000_std0.0_prand0.0.pth')
-    p.add_argument('--rollout_length', type=int, default=50000)
-    p.add_argument('--num_steps', type=int, default=10**7)
-    p.add_argument('--eval_interval', type=int, default=10**5)
-    p.add_argument('--env_id', type=str, default='InvertedPendulumMuJoCoEnv-v0')
+    p.add_argument('--buffer', type=str, default='buffers/test_buffer.pth')
+    p.add_argument('--rollout_length', type=int, default=5000)
+    p.add_argument('--num_steps', type=int, default=10 ** 6)
+    p.add_argument('--eval_interval', type=int, default=10 ** 4)
+    p.add_argument('--env_id', type=str, default='Pendulum-v0')
     p.add_argument('--algo', type=str, default='airl')
     p.add_argument('--cuda', action='store_true')
     p.add_argument('--seed', type=int, default=0)
