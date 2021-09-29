@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+import pybulletgym
 from gym.spaces import Discrete
 
 gym.logger.set_level(40)

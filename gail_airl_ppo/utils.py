@@ -1,4 +1,3 @@
-from tianshou.data import ReplayBuffer
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -22,7 +21,7 @@ def add_random_noise(action, std):
     return action.clip(-1.0, 1.0)
 
 
-def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=False):
+def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0):
     """
     智能体与环境交互生成轨迹数据
     :param env: 环境
@@ -42,8 +41,7 @@ def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=F
         buffer_size=buffer_size,
         state_shape=env.observation_space.shape,
         action_shape=env.action_space.shape,
-        device=device,
-        discrete=discrete
+        device=device
     )
 
     total_return = 0.0  # 累计回报
@@ -61,57 +59,21 @@ def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=F
             action = env.action_space.sample()  # 随机行为
         else:
             action = algo.exploit(state)  # 利用模型得到行为分布
-            if std != 0:
-                action = add_random_noise(action, std)  # 为行为分布添加噪声
+            action = add_random_noise(action, std)  # 为行为分布添加噪声
 
         next_state, reward, done, _ = env.step(action)
-        # mask = False if t == env._max_episode_steps else done  # 到达交互最大次数或交互结束
-        mask = done  # 到达交互最大次数或交互结束
+        mask = False if t == env._max_episode_steps else done  # 到达交互最大次数或交互结束
         buffer.append(state, action, reward, mask, next_state)  # 添加数据到缓冲区
         episode_return += reward  # 累计每回合奖励作为回报 无折扣
 
         if done:
             num_episodes += 1
-            total_return += [0, 1][episode_return > 0]
+            total_return += episode_return
+            state = env.reset()
             t = 0
             episode_return = 0.0
-            print("Black score:", env.black_score, "White score:", env.white_score)
-            next_state = env.reset()
 
         state = next_state
 
     print(f'Mean return of the expert is {total_return / num_episodes}')
     return buffer
-
-
-def buffer_trans(replay_buffer: ReplayBuffer, device='cpu'):
-    """
-    tianshou buffer to buffer
-    """
-    obs = replay_buffer.obs
-    acts = replay_buffer.act
-    rew = replay_buffer.rew
-    done = replay_buffer.done
-    obs_next = replay_buffer.obs_next
-
-    buffer = Buffer(buffer_size=len(replay_buffer),
-                    state_shape=obs[0].shape,
-                    action_shape=acts[0].shape,
-                    device=device)
-    for i in range(len(replay_buffer)):
-        buffer.append(obs[i], np.array(acts[i]), rew[i], done[i], obs_next[i])
-    return buffer
-
-
-def get_possible_action(env, action_values, state, color):
-    possible_actions = env.get_possible_actions(state, color)
-    if possible_actions == [state.shape[-1] ** 2 + 1]:
-        action = possible_actions[0]
-    else:
-        max_action, max_value = env.board_size ** 2 + 1, -10
-        for a in possible_actions:
-            if action_values[a] > max_value:
-                max_action = a
-                max_value = action_values[a]
-        action = max_action
-    return action

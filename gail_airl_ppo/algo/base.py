@@ -41,4 +41,3 @@ class Algorithm(ABC):
     def save_models(self, save_dir):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-

@@ -74,7 +74,7 @@ class MAIRL:
                 # if t == 0:  # 回合结束
                 #     break
 
-    def meta_train(self, epoch=20, num_tasks=3):
+    def meta_train(self, epoch=100, num_tasks=3):
         """
         元模型训练
         :param epoch: 训练轮数
