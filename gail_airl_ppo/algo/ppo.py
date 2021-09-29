@@ -1,10 +1,13 @@
+import numpy as np
 import torch
 from torch import nn
 from torch.optim import Adam
 
+from reversi_env import ReversiEnv
 from .base import Algorithm
 from gail_airl_ppo.buffer import RolloutBuffer
 from gail_airl_ppo.network import StateIndependentPolicy, StateFunction
+from ..utils import get_possible_action
 
 
 def calculate_gae(values, rewards, dones, next_values, gamma, lambd):
@@ -30,8 +33,11 @@ class PPO(Algorithm):
                  rollout_length=2048, mix_buffer=20, lr_actor=3e-4,
                  lr_critic=3e-4, units_actor=(64, 64), units_critic=(64, 64),
                  epoch_ppo=10, clip_eps=0.2, lambd=0.97, coef_ent=0.0,
-                 max_grad_norm=10.0):
+                 max_grad_norm=10.0, discrete=False):
         super().__init__(state_shape, action_shape, device, seed, gamma)
+
+        if discrete:
+            self.color = ReversiEnv.BLACK
 
         # 采样缓冲区
         self.buffer = RolloutBuffer(
@@ -39,22 +45,27 @@ class PPO(Algorithm):
             state_shape=state_shape,
             action_shape=action_shape,
             device=device,
-            mix=mix_buffer
+            mix=mix_buffer,
+            discrete=discrete
         )
 
+        if discrete:
+            state_shape = [np.prod(state_shape)]
         # 策略网络
         self.actor = StateIndependentPolicy(
             state_shape=state_shape,
             action_shape=action_shape,
             hidden_units=units_actor,
-            hidden_activation=nn.Tanh()
+            hidden_activation=nn.Tanh(),
+            cnn=True if discrete else False
         ).to(device)
 
         # 价值网络
         self.critic = StateFunction(
             state_shape=state_shape,
             hidden_units=units_critic,
-            hidden_activation=nn.Tanh()
+            hidden_activation=nn.Tanh(),
+            cnn=True if discrete else False
         ).to(device)
 
         # 正交初始化
@@ -78,6 +89,7 @@ class PPO(Algorithm):
         self.max_grad_norm = max_grad_norm  # 最大梯度norm
 
         self.old_value = 0
+        self.discrete = discrete
 
     def is_update(self, step):
         return step % self.rollout_length == 0
@@ -89,8 +101,12 @@ class PPO(Algorithm):
         t += 1  # 时间步
 
         action, log_pi = self.explore(state)
+        if self.discrete:
+            action = get_possible_action(env, action, state, self.color)
+
         next_state, reward, done, _ = env.step(action)
-        mask = False if t == env._max_episode_steps else done
+        # mask = False if t == env._max_episode_steps else done
+        mask = done
 
         self.buffer.append(state, action, reward, mask, log_pi, next_state)
 

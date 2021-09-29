@@ -72,10 +72,11 @@ def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=F
 
         if done:
             num_episodes += 1
-            total_return += episode_return
-            state = env.reset()
+            total_return += [0, 1][episode_return > 0]
             t = 0
             episode_return = 0.0
+            print("Black score:", env.black_score, "White score:", env.white_score)
+            next_state = env.reset()
 
         state = next_state
 
@@ -100,3 +101,17 @@ def buffer_trans(replay_buffer: ReplayBuffer, device='cpu'):
     for i in range(len(replay_buffer)):
         buffer.append(obs[i], np.array(acts[i]), rew[i], done[i], obs_next[i])
     return buffer
+
+
+def get_possible_action(env, action_values, state, color):
+    possible_actions = env.get_possible_actions(state, color)
+    if possible_actions == [state.shape[-1] ** 2 + 1]:
+        action = possible_actions[0]
+    else:
+        max_action, max_value = env.board_size ** 2 + 1, -10
+        for a in possible_actions:
+            if action_values[a] > max_value:
+                max_action = a
+                max_value = action_values[a]
+        action = max_action
+    return action

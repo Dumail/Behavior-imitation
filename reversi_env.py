@@ -14,6 +14,7 @@ from gym.utils import seeding
 
 from gail_airl_ppo.algo.reversi_algo import ReversiAlgo
 import torch
+
 from gail_airl_ppo.utils import collect_demo
 
 

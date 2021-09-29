@@ -100,16 +100,20 @@ class RolloutBuffer:
     :param mix: 空间大小倍率
     """
 
-    def __init__(self, buffer_size, state_shape, action_shape, device, mix=1):
+    def __init__(self, buffer_size, state_shape, action_shape, device, mix=1, discrete=False):
         self._n = 0  # 队列实际数据数
         self._p = 0  # 队列头位置
         self.mix = mix
         self.buffer_size = buffer_size  # 缓冲区大小
         self.total_size = mix * buffer_size  # 实际总大小
+        self.discrete = discrete
 
         self.states = torch.empty(
             (self.total_size, *state_shape), dtype=torch.float, device=device)
-        self.actions = torch.empty((self.total_size, *action_shape), dtype=torch.float, device=device)
+        if not discrete:
+            self.actions = torch.empty((self.total_size, *action_shape), dtype=torch.float, device=device)
+        else:
+            self.actions = torch.empty((self.total_size, 1), dtype=torch.float, device=device)
         self.rewards = torch.empty(
             (self.total_size, 1), dtype=torch.float, device=device)
         self.dones = torch.empty(
@@ -121,7 +125,10 @@ class RolloutBuffer:
 
     def append(self, state, action, reward, done, log_pi, next_state):
         self.states[self._p].copy_(torch.from_numpy(state))
-        self.actions[self._p].copy_(torch.from_numpy(action))
+        if not self.discrete:
+            self.actions[self._p].copy_(torch.from_numpy(action))
+        else:
+            self.actions[self._p] = float(action)
         self.rewards[self._p] = float(reward)
         self.dones[self._p] = float(done)
         self.log_pis[self._p] = float(log_pi)

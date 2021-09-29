@@ -4,19 +4,34 @@ from torch import nn
 from .utils import build_mlp
 
 
+def cnn_wrapper(func):
+    def temp_fun(self, temp_states, *args):
+        if self.cnn:
+            temp_states = torch.reshape(self.cnn_model(temp_states), (-1, self.state_shape[0]))
+        return func(self, temp_states, *args)
+
+    return temp_fun
+
+
 class StateFunction(nn.Module):
     """价值函数网络"""
+
     def __init__(self, state_shape, hidden_units=(64, 64),
-                 hidden_activation=nn.Tanh()):
+                 hidden_activation=nn.Tanh(), cnn=False):
         super().__init__()
+        self.state_shape = state_shape
+        self.cnn = cnn
+        if self.cnn:
+            self.cnn_model = nn.Conv2d(3, 3, (3, 3), padding=(1, 1))
 
         self.net = build_mlp(
             input_dim=state_shape[0],
-            output_dim=1, # 仅输出状态价值
+            output_dim=1,  # 仅输出状态价值
             hidden_units=hidden_units,
             hidden_activation=hidden_activation
         )
 
+    @cnn_wrapper
     def forward(self, states):
         return self.net(states)
 

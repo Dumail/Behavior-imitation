@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -15,11 +16,11 @@ class AIRL(PPO):
                  units_actor=(64, 64), units_critic=(64, 64),
                  units_disc_r=(100, 100), units_disc_v=(100, 100),
                  epoch_ppo=50, epoch_disc=10, clip_eps=0.2, lambd=0.97,
-                 coef_ent=0.0, max_grad_norm=10.0):
+                 coef_ent=0.0, max_grad_norm=10.0, discrete=False):
         super().__init__(
             state_shape, action_shape, device, seed, gamma, rollout_length,
             mix_buffer, lr_actor, lr_critic, units_actor, units_critic,
-            epoch_ppo, clip_eps, lambd, coef_ent, max_grad_norm
+            epoch_ppo, clip_eps, lambd, coef_ent, max_grad_norm, discrete
         )
 
         # Expert's buffer.
@@ -27,12 +28,13 @@ class AIRL(PPO):
 
         # 鉴别器 D(s,s')
         self.disc = AIRLDiscrim(
-            state_shape=state_shape,
+            state_shape=[np.prod(state_shape)] if self.discrete else state_shape,
             gamma=gamma,
             hidden_units_r=units_disc_r,
             hidden_units_v=units_disc_v,
             hidden_activation_r=nn.ReLU(inplace=True),
-            hidden_activation_v=nn.ReLU(inplace=True)
+            hidden_activation_v=nn.ReLU(inplace=True),
+            cnn=True if self.discrete else False
         ).to(device)
 
         self.learning_steps_disc = 0

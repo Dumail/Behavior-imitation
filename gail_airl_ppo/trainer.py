@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 
 from gail_airl_ppo.env import make_env
+from gail_airl_ppo.utils import get_possible_action
 
 
 class Trainer:
@@ -23,10 +24,11 @@ class Trainer:
     """
 
     def __init__(self, env, env_test, algo, log_dir, seed=0, num_steps=10 ** 5,
-                 eval_interval=10 ** 3, num_eval_episodes=5):
+                 eval_interval=10 ** 3, num_eval_episodes=5, discrete=False):
         super().__init__()
 
         # Env to collect samples.
+        self.discrete = discrete
         self.env = env
         self.env.seed(seed)
 
@@ -107,9 +109,12 @@ class Trainer:
 
             while not done:
                 action = self.algo.exploit(state)
+                if self.discrete:
+                    action = get_possible_action(self.env, action, state, self.algo.color)
                 state, reward, done, _ = self.env_test.step(action)
-                episode_return += reward
+                episode_return += [0, 1][reward > 0]
 
+            self.env.render()
             mean_return += episode_return / self.num_eval_episodes
 
         self.writer.add_scalar('return/test', mean_return, step)
