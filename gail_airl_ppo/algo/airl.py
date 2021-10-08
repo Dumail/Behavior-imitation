@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -28,13 +27,12 @@ class AIRL(PPO):
 
         # 鉴别器 D(s,s')
         self.disc = AIRLDiscrim(
-            state_shape=[np.prod(state_shape)] if self.discrete else state_shape,
+            state_shape=state_shape,
             gamma=gamma,
             hidden_units_r=units_disc_r,
             hidden_units_v=units_disc_v,
             hidden_activation_r=nn.ReLU(inplace=True),
-            hidden_activation_v=nn.ReLU(inplace=True),
-            cnn=True if self.discrete else False
+            hidden_activation_v=nn.ReLU(inplace=True)
         ).to(device)
 
         self.learning_steps_disc = 0

@@ -1,8 +1,12 @@
 import os
 from time import time, sleep
 from datetime import timedelta
+
+import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import torch
+
+from gail_airl_ppo.env import make_env
 
 
 class Trainer:
@@ -19,8 +23,10 @@ class Trainer:
     """
 
     def __init__(self, env, env_test, algo, log_dir, seed=0, num_steps=10 ** 5,
-                 eval_interval=10 ** 3, num_eval_episodes=5):
+                 eval_interval=10 ** 3, num_eval_episodes=5, discrete=False):
         super().__init__()
+
+        self.discrete = discrete
 
         # Env to collect samples.
         self.env = env
@@ -74,6 +80,25 @@ class Trainer:
         # 等待日志写入完成
         sleep(10)
 
+    def render(self, env_id):
+        env = make_env(env_id)
+        env.render(mode='human')
+        state = env.reset()
+        episode_return = 0.0
+        done = False
+
+        while not done:
+            # action = self.algo.exploit(state)
+            action = np.array(
+                [-0.73017883, 0.02064807, -0.50737125, -0.74813616, 0.8141342, 0.5373625, 0.3600479, -0.7246281])
+            # print("pa",action)
+            # action = env.action_space.sample()
+            # print("sa",action)
+            state, reward, done, _ = env.step(action)
+            episode_return += reward
+
+        print("return:", episode_return)
+
     def evaluate(self, step):
         mean_return = 0.0  # 评估时的平均回报
 
@@ -82,8 +107,9 @@ class Trainer:
             episode_return = 0.0
             done = False
 
-            while (not done):
+            while not done:
                 action = self.algo.exploit(state)
+                # temp_action = action if not self.discrete else np.argmax(action)
                 state, reward, done, _ = self.env_test.step(action)
                 episode_return += reward
 

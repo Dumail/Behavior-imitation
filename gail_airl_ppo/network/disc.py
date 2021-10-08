@@ -4,14 +4,6 @@ import torch.nn.functional as F
 
 from .utils import build_mlp
 
-def cnn_wrapper(func):
-    def temp_fun(self, temp_states, done, temp_next_states):
-        if self.cnn:
-            temp_states = torch.reshape(self.cnn_model(temp_states), (-1, self.state_shape[0]))
-            temp_next_states = torch.reshape(self.cnn_model(temp_next_states), (-1, self.state_shape[0]))
-        return func(self, temp_states, done, temp_next_states)
-
-    return temp_fun
 
 class GAILDiscrim(nn.Module):
     """
@@ -46,12 +38,9 @@ class AIRLDiscrim(nn.Module):
                  hidden_units_r=(64, 64),
                  hidden_units_v=(64, 64),
                  hidden_activation_r=nn.ReLU(inplace=True),
-                 hidden_activation_v=nn.ReLU(inplace=True), cnn=False):
+                 hidden_activation_v=nn.ReLU(inplace=True)):
         super().__init__()
-        self.cnn = cnn
-        self.state_shape = state_shape
-        if self.cnn:
-            self.cnn_model = nn.Conv2d(3, 3, (3, 3), padding=(1, 1))
+
         self.g = build_mlp(
             input_dim=state_shape[0],
             output_dim=1,
@@ -67,7 +56,6 @@ class AIRLDiscrim(nn.Module):
 
         self.gamma = gamma
 
-    @cnn_wrapper
     def f(self, states, dones, next_states):
         # f(s,a,s') = g(s,a) + y h(s') -h(s)  f(s,a)=-E(s,a):负能量函数
         rs = self.g(states)

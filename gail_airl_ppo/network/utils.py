@@ -49,5 +49,4 @@ def atanh(x):
 
 def evaluate_lop_pi(means, log_stds, actions):
     noises = (atanh(actions) - means) / (log_stds.exp() + 1e-8)
-    noises = torch.zeros_like(actions)
     return calculate_log_pi(log_stds, noises, actions)

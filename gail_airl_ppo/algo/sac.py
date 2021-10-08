@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
+from . import PPO
 from .base import Algorithm
 from gail_airl_ppo.buffer import Buffer
 from gail_airl_ppo.utils import soft_update, disable_gradient

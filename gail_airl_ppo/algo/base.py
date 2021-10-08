@@ -4,6 +4,18 @@ import numpy as np
 import torch
 
 
+# def discrete_wrapper(func):
+#     def temp_fun(self, *args, **kwargs):
+#         result = func(self, *args, **kwargs)
+#         if not isinstance(result, tuple):
+#             return np.argmax(result)
+#         else:
+#             temp_action = np.argmax(result[0])
+#             return temp_action, result[1]
+#
+#     return temp_fun
+
+
 class Algorithm(ABC):
 
     def __init__(self, state_shape, action_shape, device, seed, gamma):
@@ -17,12 +29,14 @@ class Algorithm(ABC):
         self.device = device
         self.gamma = gamma
 
+    # @discrete_wrapper
     def explore(self, state):
         state = torch.tensor(state, dtype=torch.float, device=self.device)
         with torch.no_grad():
             action, log_pi = self.actor.sample(state.unsqueeze_(0))
         return action.cpu().numpy()[0], log_pi.item()
 
+    # @discrete_wrapper
     def exploit(self, state):
         state = torch.tensor(state, dtype=torch.float, device=self.device)
         with torch.no_grad():

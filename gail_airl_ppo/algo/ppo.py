@@ -3,11 +3,10 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
-from reversi_env import ReversiEnv
 from .base import Algorithm
 from gail_airl_ppo.buffer import RolloutBuffer
 from gail_airl_ppo.network import StateIndependentPolicy, StateFunction
-from ..utils import get_possible_action
+from ..utils import disable_gradient
 
 
 def calculate_gae(values, rewards, dones, next_values, gamma, lambd):
@@ -36,9 +35,7 @@ class PPO(Algorithm):
                  max_grad_norm=10.0, discrete=False):
         super().__init__(state_shape, action_shape, device, seed, gamma)
 
-        if discrete:
-            self.color = ReversiEnv.BLACK
-
+        self.action_shape = action_shape
         # 采样缓冲区
         self.buffer = RolloutBuffer(
             buffer_size=rollout_length,
@@ -46,26 +43,23 @@ class PPO(Algorithm):
             action_shape=action_shape,
             device=device,
             mix=mix_buffer,
-            discrete=discrete
+            # discrete=discrete
         )
 
-        if discrete:
-            state_shape = [np.prod(state_shape)]
         # 策略网络
         self.actor = StateIndependentPolicy(
             state_shape=state_shape,
             action_shape=action_shape,
             hidden_units=units_actor,
             hidden_activation=nn.Tanh(),
-            cnn=True if discrete else False
+            discrete=discrete
         ).to(device)
 
         # 价值网络
         self.critic = StateFunction(
             state_shape=state_shape,
             hidden_units=units_critic,
-            hidden_activation=nn.Tanh(),
-            cnn=True if discrete else False
+            hidden_activation=nn.Tanh()
         ).to(device)
 
         # 正交初始化
@@ -89,7 +83,7 @@ class PPO(Algorithm):
         self.max_grad_norm = max_grad_norm  # 最大梯度norm
 
         self.old_value = 0
-        self.discrete = discrete
+        # self.discrete = discrete
 
     def is_update(self, step):
         return step % self.rollout_length == 0
@@ -101,12 +95,9 @@ class PPO(Algorithm):
         t += 1  # 时间步
 
         action, log_pi = self.explore(state)
-        if self.discrete:
-            action = get_possible_action(env, action, state, self.color)
-
+        # temp_action = action if not self.discrete else np.argmax(action)
         next_state, reward, done, _ = env.step(action)
-        # mask = False if t == env._max_episode_steps else done
-        mask = done
+        mask = False if t == env._max_episode_steps else done
 
         self.buffer.append(state, action, reward, mask, log_pi, next_state)
 
@@ -155,6 +146,11 @@ class PPO(Algorithm):
                 'loss/critic', loss_critic.item(), self.learning_steps)
 
     def update_actor(self, states, actions, log_pis_old, gaes, writer):
+        # if self.discrete:
+        #     action_index = actions
+        #     actions = torch.zeros((len(actions), self.action_shape[0]))
+        #     for i in range(len(actions)):
+        #         actions[i][int(action_index[i][0])] = 1
         log_pis = self.actor.evaluate_log_pi(states, actions)  # 当前的策略的log p_pi(a|s)
         entropy = -log_pis.mean()  # 策略熵
 
@@ -180,4 +176,29 @@ class PPO(Algorithm):
                 'stats/entropy', entropy.item(), self.learning_steps)
 
     def save_models(self, save_dir):
+        torch.save(self.actor.state_dict(), save_dir)
+
+
+class PPOExpert(Algorithm):
+    def update(self):
         pass
+
+    def save_models(self, save_dir):
+        pass
+
+    def is_update(self, step):
+        pass
+
+    def __init__(self, state_shape, action_shape, device, path, units_actor=(64, 64), discrete=False):
+        # 策略网络
+        super().__init__(state_shape, action_shape, device, 0, 0)
+        self.actor = StateIndependentPolicy(
+            state_shape=state_shape,
+            action_shape=action_shape,
+            hidden_units=units_actor,
+            hidden_activation=nn.Tanh(),
+            discrete=discrete
+        ).to(device)
+        self.actor.load_state_dict(torch.load(path))
+        disable_gradient(self.actor)
+        self.device = device
