@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 from time import time, sleep
 from datetime import timedelta
 
@@ -51,55 +52,86 @@ class Trainer:
         self.num_eval_episodes = num_eval_episodes
 
     def train(self):
+        self.env.opponent = deepcopy(self.algo)  # 自对弈更新
         self.start_time = time()  # 开始训练的时间戳
         t = 0  # 每个回合的时间步
 
-        state = self.env.reset()
+        self.algo.supervised_update_actor(5000, writer=self.writer, eval_freq=100)
 
-        for step in range(1, self.num_steps + 1):
+        # state = self.env.reset().copy()  # 初始化环境
+        #
+        # for step in range(1, self.num_steps + 1):
+        #
+        #     # lam = lambda f: 1 - f / self.num_steps
+        #     # torch.optim.lr_scheduler.LambdaLR(self.algo.optim_actor, lr_lambda=lam)
+        #     # torch.optim.lr_scheduler.LambdaLR(self.algo.optim_critic, lr_lambda=lam)
+        #
+        #     # print(self.algo.optim_critic)
+        #
+        #     # 模型与环境交交互更新状态和时间步
+        #     state, t = self.algo.step(self.env, state, t, step)
+        #     state = state.copy()
+        #
+        #     # 在适当的时候更新模型
+        #     if self.algo.is_update(step):
+        #         self.algo.update(self.writer)
+        #
+        #     # 在适当的时候评估模型并存储
+        #     if step % self.eval_interval == 0:
+        #         self.evaluate(step)
+        #         self.actions_similarity()
+        #         print("Train actions similarity:", self.algo.actions_similarity(self.algo.expert_buffer))
+        #         test_similar_before = self.algo.actions_similarity(self.algo.test_expert_buffer)
+        #         print("Test actions similarity:", test_similar_before)
+        #         # print(list(self.algo.actor.parameters()))
+        #         self.algo.save_models(
+        #             os.path.join(self.model_dir, f'step{step}'))
+        #
+        #         test_similar_after = self.algo.actions_similarity(self.algo.test_expert_buffer)
+        #         if test_similar_after > test_similar_before:
+        #             self.env.opponent = deepcopy(self.algo)  # 自对弈更新
+        #
+        # # 等待日志写入完成
+        # sleep(10)
 
-            # lam = lambda f: 1 - f / self.num_steps
-            # torch.optim.lr_scheduler.LambdaLR(self.algo.optim_actor, lr_lambda=lam)
-            # torch.optim.lr_scheduler.LambdaLR(self.algo.optim_critic, lr_lambda=lam)
+    # def render(self, env_id):
+    #     env = make_env(env_id)
+    #     env.render(mode='human')
+    #     state = env.reset()
+    #     episode_return = 0.0
+    #     done = False
+    #
+    #     while not done:
+    #         # action = self.algo.exploit(state)
+    #         action = np.array(
+    #             [-0.73017883, 0.02064807, -0.50737125, -0.74813616, 0.8141342, 0.5373625, 0.3600479, -0.7246281])
+    #         # print("pa",action)
+    #         # action = env.action_space.sample()
+    #         # print("sa",action)
+    #         state, reward, done, _ = env.step(action)
+    #         episode_return += reward
+    #
+    #     print("return:", episode_return)
 
-            # print(self.algo.optim_critic)
+    def actions_similarity(self):
+        """计算行为相似度"""
+        expert_buffer = self.algo.test_expert_buffer
+        states = expert_buffer.states
+        actions = expert_buffer.actions
+        same_num = 0  # 相同的动作数量
 
-            # 模型与环境交货更新状态和时间步
-            state, t = self.algo.step(self.env, state, t, step)
-
-            # 在适当的时候更新模型
-            if self.algo.is_update(step):
-                self.algo.update(self.writer)
-
-            # 在适当的适合评估模型并存储
-            if step % self.eval_interval == 0:
-                self.evaluate(step)
-                self.algo.save_models(
-                    os.path.join(self.model_dir, f'step{step}'))
-
-        # 等待日志写入完成
-        sleep(10)
-
-    def render(self, env_id):
-        env = make_env(env_id)
-        env.render(mode='human')
-        state = env.reset()
-        episode_return = 0.0
-        done = False
-
-        while not done:
-            # action = self.algo.exploit(state)
-            action = np.array(
-                [-0.73017883, 0.02064807, -0.50737125, -0.74813616, 0.8141342, 0.5373625, 0.3600479, -0.7246281])
-            # print("pa",action)
-            # action = env.action_space.sample()
-            # print("sa",action)
-            state, reward, done, _ = env.step(action)
-            episode_return += reward
-
-        print("return:", episode_return)
+        for i in range(len(states)):
+            # print(np.where(states[i][2].flatten() != 0))
+            pred_action = self.algo.exploit(states[i])
+            # pred_action = pred_action.argmax()
+            true_action = torch.argmax(actions[i]).item()
+            # print(pred_action, true_action)
+            if pred_action == true_action:
+                same_num += 1
+        print("Actions similarity:", same_num / len(states))
 
     def evaluate(self, step):
+        """评估智能体"""
         mean_return = 0.0  # 评估时的平均回报
 
         for _ in range(self.num_eval_episodes):
@@ -108,11 +140,14 @@ class Trainer:
             done = False
 
             while not done:
+                # temp_state = state.reshape((16,8))
                 action = self.algo.exploit(state)
                 # temp_action = action if not self.discrete else np.argmax(action)
                 state, reward, done, _ = self.env_test.step(action)
+                # self.env_test.render()
                 episode_return += reward
 
+            # 计算平均回报
             mean_return += episode_return / self.num_eval_episodes
 
         self.writer.add_scalar('return/test', mean_return, step)

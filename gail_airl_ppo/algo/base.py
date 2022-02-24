@@ -34,7 +34,9 @@ class Algorithm(ABC):
         state = torch.tensor(state, dtype=torch.float, device=self.device)
         with torch.no_grad():
             action, log_pi = self.actor.sample(state.unsqueeze_(0))
-        return action.cpu().numpy()[0], log_pi.item()
+        act = action.cpu().numpy()[0]
+        log_pi = log_pi.item()
+        return act, log_pi
 
     # @discrete_wrapper
     def exploit(self, state):

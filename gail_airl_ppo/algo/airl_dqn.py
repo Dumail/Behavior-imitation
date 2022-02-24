@@ -1,28 +1,18 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 from torch.optim import Adam
 
-from .ppo import PPO
 from gail_airl_ppo.network import AIRLDiscrim
+from .d3qn import D3QN
 
 
-class AIRL(PPO):
-
-    def __init__(self, buffer_expert, state_shape, action_shape, device, seed,
-                 gamma=0.995, rollout_length=10000, mix_buffer=1,
-                 batch_size=64, lr_actor=3e-4, lr_critic=3e-4, lr_disc=3e-4,
-                 units_actor=(64, 64), units_critic=(64, 64),
-                 units_disc_r=(100, 100), units_disc_v=(100, 100),
-                 epoch_ppo=50, epoch_disc=10, clip_eps=0.2, lambd=0.97,
-                 coef_ent=0.0, max_grad_norm=10.0, discrete=False, cnn=False):
-        super().__init__(
-            state_shape, action_shape, device, seed, gamma, rollout_length,
-            mix_buffer, lr_actor, lr_critic, units_actor, units_critic,
-            epoch_ppo, clip_eps, lambd, coef_ent, max_grad_norm, discrete, cnn
-        )
-        # Expert's buffer.
-        self.expert_buffer = buffer_expert
+class AIRL_DQN(D3QN):
+    def __init__(self, state_shape, action_shape, device, seed, action_space,
+                 gamma=0.97, batch_size=256, lr_disc=1e-6, units_disc_r=(64, 64), units_disc_v=(64, 64),
+                 epoch_disc=20, cnn=True, expert_buffer=None, test_expert_buffer=None):
+        super().__init__(state_shape, action_shape, action_space=action_space, device=device, seed=seed, gamma=gamma,
+                         expert_buffer=expert_buffer, test_expert_buffer=test_expert_buffer)
 
         # 鉴别器 D(s,s')
         self.disc = AIRLDiscrim(
@@ -40,8 +30,9 @@ class AIRL(PPO):
         self.batch_size = batch_size
         self.epoch_disc = epoch_disc
 
-    def set_expert_buffer(self, expert_buffer):
+    def set_expert_buffer(self, expert_buffer, test_expert_buffer):
         self.expert_buffer = expert_buffer
+        self.test_expert_buffer = test_expert_buffer
 
     def update(self, writer):
         self.learning_steps += 1
@@ -50,13 +41,18 @@ class AIRL(PPO):
             self.learning_steps_disc += 1
 
             # Samples from current policy's trajectories.
-            states, _, _, dones, log_pis, next_states = self.buffer.sample(self.batch_size)
+            samples = self.buffer.sample()
+            states, actions, _, dones, next_states = self.discompose_sample(samples)
+
+            with torch.no_grad():
+                log_pis = self.actor.evaluate_log_pi(states, actions)
+
             # Samples from expert's demonstrations.
             states_exp, actions_exp, _, dones_exp, next_states_exp = \
                 self.expert_buffer.sample(self.batch_size)
             # 计算专家行为的对数概率
             with torch.no_grad():
-                log_pis_exp = self.actor.evaluate_log_pi(states_exp, actions_exp)
+                log_pis_exp = self.actor.evaluate_log_pi(states_exp, actions_exp.argmax(1).unsqueeze_(1))
             # Update discriminator.
             self.update_disc(
                 states, dones, log_pis, next_states, states_exp,
@@ -64,15 +60,25 @@ class AIRL(PPO):
             )
 
         # We don't use reward signals here,
-        states, actions, _, dones, log_pis, next_states = self.buffer.get()
+        samples = self.buffer.sample()
+        states, actions, _, dones, next_states = self.discompose_sample(samples)
+        with torch.no_grad():
+            log_pis = self.actor.evaluate_log_pi(states, actions)
 
+        states_exp, actions_exp, _, _, _ = self.expert_buffer.sample(self.batch_size)
+        # sim = self.actions_similarity(states_exp, actions_exp)  # 当前策略与专家的行为相似度
+        # if sim>0.2:
+        #     print(sim)
         # Calculate rewards.
-        rewards = self.disc.calculate_reward(
-            states, dones, log_pis, next_states)
+        rewards = self.disc.calculate_reward(states, dones, log_pis, next_states)
 
-        # Update PPO using estimated rewards.
-        self.update_ppo(
-            states, actions, rewards, dones, log_pis, next_states, writer)
+        # Update actor using estimated rewards.
+        # before_params = deepcopy(self.actor.state_dict())
+        self.update_actor(states, actions, rewards, dones, next_states, writer)
+        # update_sim = self.actions_similarity(self.expert_buffer)  # 更新后的相似度
+        # if update_sim < sim - 0.02:
+        #     # 相似度减小的不更新
+        #     self.actor.load_state_dict(before_params)
 
     def update_disc(self, states, dones, log_pis, next_states,
                     states_exp, dones_exp, log_pis_exp,
@@ -93,8 +99,7 @@ class AIRL(PPO):
         self.optim_disc.step()
 
         if self.learning_steps_disc % self.epoch_disc == 0:
-            writer.add_scalar(
-                'loss/disc', loss_disc.item(), self.learning_steps)
+            writer.add_scalar('loss/disc', loss_disc.item(), self.learning_steps)
 
             # Discriminator's accuracies.
             with torch.no_grad():

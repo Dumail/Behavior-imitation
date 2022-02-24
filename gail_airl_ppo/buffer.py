@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
 
 class SerializedBuffer:
@@ -32,6 +33,25 @@ class SerializedBuffer:
             self.dones[idxes],
             self.next_states[idxes]
         )
+
+    def reduce(self, number):
+        """减少数据条数"""
+        idxes = np.random.randint(0, self._n, size=number)
+        states = self.states[idxes]
+        actions = self.actions[idxes]
+        rewards = self.rewards[idxes]
+        dones = self.dones[idxes]
+        next_states = self.next_states[idxes]
+        new_buffer = SerializedBuffer(None, self.device)
+
+        new_buffer.device = self.device
+        new_buffer.buffer_size = new_buffer._n = number
+        new_buffer.states = states
+        new_buffer.actions = actions
+        new_buffer.rewards = rewards
+        new_buffer.dones = dones
+        new_buffer.next_states = next_states
+        return new_buffer
 
 
 class Buffer(SerializedBuffer):
@@ -71,6 +91,8 @@ class Buffer(SerializedBuffer):
         self.states[self._p].copy_(torch.from_numpy(state))
         # if not self.discrete:
         self.actions[self._p].copy_(torch.from_numpy(action))
+        # print(np.where(self.states[self._p][2].numpy().flatten() != 0))
+        # print(torch.argmax(self.actions[self._p]))
         # else:
         #     self.actions[self._p] = float(action)
 

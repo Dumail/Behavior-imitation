@@ -6,18 +6,27 @@ from .utils import build_mlp
 
 class StateFunction(nn.Module):
     """价值函数网络"""
+
     def __init__(self, state_shape, hidden_units=(64, 64),
-                 hidden_activation=nn.Tanh()):
+                 hidden_activation=nn.Tanh(), cnn=False):
         super().__init__()
 
+        self.cnn = cnn
+        self.state_dim = state_shape[0] * state_shape[1] * state_shape[2] if cnn else state_shape[0]
         self.net = build_mlp(
-            input_dim=state_shape[0],
+            input_dim=self.state_dim,
             output_dim=1,  # 仅输出状态价值
             hidden_units=hidden_units,
             hidden_activation=hidden_activation
         )
 
+        if self.cnn:
+            self.cnn_model = nn.Conv2d(3, 3, (3, 3), padding=(1, 1))
+
     def forward(self, states):
+        if self.cnn:
+            states = self.cnn_model(states)
+            states = states.reshape((-1, self.state_dim))
         return self.net(states)
 
 

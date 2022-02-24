@@ -1,4 +1,4 @@
-from tianshou.data import ReplayBuffer
+# from tianshou.data import ReplayBuffer
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -49,7 +49,7 @@ def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=F
     total_return = 0.0  # 累计回报
     num_episodes = 0  # 交互回合数
 
-    state = env.reset()
+    state = env.reset().copy()
     t = 0  # 每个回合的时间步
     episode_return = 0.0  # 每个回合的总回报
 
@@ -64,7 +64,10 @@ def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=F
             if std != 0:
                 action = add_random_noise(action, std)  # 为行为分布添加噪声
 
+        # print(env.possible_actions)
+
         next_state, reward, done, _ = env.step(action)
+        # print(next_state is state)
         # mask = False if t == env._max_episode_steps else done  # 到达交互最大次数或交互结束
         mask = done  # 到达交互最大次数或交互结束
 
@@ -72,43 +75,45 @@ def collect_demo(env, algo, buffer_size, device, std, p_rand, seed=0, discrete=F
             index = np.argmax(action)
             action.fill(0)
             action[index] = 1
+
+        # print(np.where(state[2].flatten() != 0))
+        # print(np.argmax(action))
         buffer.append(state, action, reward, mask, next_state)  # 添加数据到缓冲区
         episode_return += reward  # 累计每回合奖励作为回报 无折扣
 
         if done:
             num_episodes += 1
             total_return += episode_return
-            state = env.reset()
+            print("Black score:", env.black_score, "White score:", env.white_score)
+            state = env.reset().copy()
             t = 0
             episode_return = 0.0
-            # print("Black score:", env.black_score, "White score:", env.white_score)
 
-        state = next_state
+        state = next_state.copy()
 
     print(f'Mean return of the expert is {total_return / num_episodes}')
     return buffer
 
-
-def buffer_trans(replay_buffer: ReplayBuffer, device='cpu', discrete=False, action_shape=None):
-    """
-    tianshou buffer to buffer
-    """
-    obs = replay_buffer.obs
-    acts = replay_buffer.act
-    if discrete:
-        temp_acts = np.zeros((len(acts), action_shape))
-        for i in range(len(acts)):
-            temp_acts[i][acts[i]] = 1
-        acts = temp_acts
-
-    rew = replay_buffer.rew
-    done = replay_buffer.done
-    obs_next = replay_buffer.obs_next
-
-    buffer = Buffer(buffer_size=len(replay_buffer),
-                    state_shape=obs[0].shape,
-                    action_shape=acts[0].shape,
-                    device=device)
-    for i in range(len(replay_buffer)):
-        buffer.append(obs[i], np.array(acts[i]), rew[i], done[i], obs_next[i])
-    return buffer
+# def buffer_trans(replay_buffer: ReplayBuffer, device='cpu', discrete=False, action_shape=None):
+#     """
+#     tianshou buffer to buffer
+#     """
+#     obs = replay_buffer.obs
+#     acts = replay_buffer.act
+#     if discrete:
+#         temp_acts = np.zeros((len(acts), action_shape))
+#         for i in range(len(acts)):
+#             temp_acts[i][acts[i]] = 1
+#         acts = temp_acts
+#
+#     rew = replay_buffer.rew
+#     done = replay_buffer.done
+#     obs_next = replay_buffer.obs_next
+#
+#     buffer = Buffer(buffer_size=len(replay_buffer),
+#                     state_shape=obs[0].shape,
+#                     action_shape=acts[0].shape,
+#                     device=device)
+#     for i in range(len(replay_buffer)):
+#         buffer.append(obs[i], np.array(acts[i]), rew[i], done[i], obs_next[i])
+#     return buffer

@@ -1,6 +1,8 @@
 import os
 import argparse
 from datetime import datetime
+
+import numpy as np
 import torch
 
 import pybulletgym
@@ -18,13 +20,15 @@ def run(args):
         device=torch.device("cuda" if args.cuda else "cpu")
     )
 
+
     algo = ALGOS[args.algo](
         buffer_expert=buffer_expert,
         state_shape=env.observation_space.shape,
-        action_shape=env.action_space.shape,
+        action_shape=env.action_space.shape or [env.action_space.n],
         device=torch.device("cuda" if args.cuda else "cpu"),
         seed=args.seed,
-        rollout_length=args.rollout_length
+        rollout_length=args.rollout_length,
+        discrete=True
     )
 
     time = datetime.now().strftime("%Y%m%d-%H%M")
@@ -45,11 +49,11 @@ def run(args):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--buffer', type=str, default='buffers/InvertedPendulumMuJoCoEnv-v0/size12500_std0.0_prand0.0.pth')
+    p.add_argument('--buffer', type=str, default='buffers/CartPole-v0/size1000_std0.0_prand0.0.pth')
     p.add_argument('--rollout_length', type=int, default=5000)
-    p.add_argument('--num_steps', type=int, default=10 ** 6)
+    p.add_argument('--num_steps', type=int, default=10 ** 5)
     p.add_argument('--eval_interval', type=int, default=10 ** 4)
-    p.add_argument('--env_id', type=str, default='InvertedPendulumMuJoCoEnv-v0')
+    p.add_argument('--env_id', type=str, default='CartPole-v0')
     p.add_argument('--algo', type=str, default='airl')
     p.add_argument('--cuda', action='store_true')
     p.add_argument('--seed', type=int, default=0)

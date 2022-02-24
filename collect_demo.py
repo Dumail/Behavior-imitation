@@ -31,7 +31,6 @@ def run(args):
         discrete=True
     )
 
-
     # 序列化缓冲区
     buffer.save(os.path.join(
         'buffers',

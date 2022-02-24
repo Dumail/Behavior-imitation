@@ -22,6 +22,7 @@ def build_mlp(input_dim, output_dim, hidden_units=[64, 64],
         units = next_units
     # 添加输出层
     layers.append(nn.Linear(units, output_dim))
+
     # 添加输出激活函数
     if output_activation is not None:
         layers.append(output_activation)
@@ -39,7 +40,8 @@ def calculate_log_pi(log_stds, noises, actions):
 def reparameterize(means, log_stds):
     noises = torch.randn_like(means)
     us = means + noises * log_stds.exp()
-    actions = torch.tanh(us)
+    # actions = torch.tanh(us)
+    actions = torch.nn.functional.softmax(us)
     return actions, calculate_log_pi(log_stds, noises, actions)
 
 

@@ -32,7 +32,7 @@ class PPO(Algorithm):
                  rollout_length=2048, mix_buffer=20, lr_actor=3e-4,
                  lr_critic=3e-4, units_actor=(64, 64), units_critic=(64, 64),
                  epoch_ppo=10, clip_eps=0.2, lambd=0.97, coef_ent=0.0,
-                 max_grad_norm=10.0, discrete=False):
+                 max_grad_norm=10.0, discrete=False, cnn=False):
         super().__init__(state_shape, action_shape, device, seed, gamma)
 
         self.action_shape = action_shape
@@ -52,14 +52,16 @@ class PPO(Algorithm):
             action_shape=action_shape,
             hidden_units=units_actor,
             hidden_activation=nn.Tanh(),
-            discrete=discrete
+            discrete=discrete,
+            cnn=cnn
         ).to(device)
 
         # 价值网络
         self.critic = StateFunction(
             state_shape=state_shape,
             hidden_units=units_critic,
-            hidden_activation=nn.Tanh()
+            hidden_activation=nn.Tanh(),
+            cnn=cnn
         ).to(device)
 
         # 正交初始化
@@ -83,7 +85,7 @@ class PPO(Algorithm):
         self.max_grad_norm = max_grad_norm  # 最大梯度norm
 
         self.old_value = 0
-        # self.discrete = discrete
+        self.discrete = discrete
 
     def is_update(self, step):
         return step % self.rollout_length == 0
@@ -95,6 +97,7 @@ class PPO(Algorithm):
         t += 1  # 时间步
 
         action, log_pi = self.explore(state)
+        # print(action)
         # temp_action = action if not self.discrete else np.argmax(action)
         next_state, reward, done, _ = env.step(action)
         mask = False if t == env._max_episode_steps else done
@@ -103,9 +106,9 @@ class PPO(Algorithm):
 
         if done:
             t = 0
-            next_state = env.reset()
+            next_state = env.reset().copy()
 
-        return next_state, t
+        return next_state.copy(), t
 
     def update(self, writer):
         """从缓冲区得到数据并更新网络"""
@@ -146,6 +149,34 @@ class PPO(Algorithm):
                 'loss/critic', loss_critic.item(), self.learning_steps)
 
     def update_actor(self, states, actions, log_pis_old, gaes, writer):
+        test_state = torch.tensor([[[[0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 1., 0., 0., 0.],
+                                     [0., 0., 0., 1., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.]],
+
+                                    [[0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 1., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 1., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.]],
+
+                                    [[0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 1., 0., 0., 0., 0.],
+                                     [0., 0., 1., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 1., 0., 0.],
+                                     [0., 0., 0., 0., 1., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.],
+                                     [0., 0., 0., 0., 0., 0., 0., 0.]]]])
+
+        # print(torch.argmax(self.actor(test_state)))
         # if self.discrete:
         #     action_index = actions
         #     actions = torch.zeros((len(actions), self.action_shape[0]))
@@ -155,14 +186,22 @@ class PPO(Algorithm):
         entropy = -log_pis.mean()  # 策略熵
 
         ratios = (log_pis - log_pis_old).exp_()  # 策略改进程度 p_pi(a|s)/p_pi'(a|s)
+        # print("log_pis:",log_pis)
+        # print("log_pis_old:",log_pis_old)
         loss_actor1 = -ratios * gaes
         loss_actor2 = -torch.clamp(
             ratios,
             1.0 - self.clip_eps,
             1.0 + self.clip_eps
         ) * gaes
+
+        # print("los_pis: ", log_pis)
+        # print("entropy: ", entropy)
+        # print("loss_actor1:", loss_actor1)
+        # print("loss_actor2:", loss_actor2)
         # max -(p_pi(a|s)/p_pi'(s|a) * A_pi'(s|a), clip(p_pi(a|s)/p_pi'(s|a),1-eps,1+eps) * A_pi'(s|a))
         loss_actor = torch.max(loss_actor1, loss_actor2).mean()
+        # print(loss_actor)
 
         self.optim_actor.zero_grad()
         (loss_actor - self.coef_ent * entropy).backward(retain_graph=False)  # policy_loss + coefficient * entropy
