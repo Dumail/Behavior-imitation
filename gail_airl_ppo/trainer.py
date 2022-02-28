@@ -1,13 +1,10 @@
 import os
 from copy import deepcopy
-from time import time, sleep
 from datetime import timedelta
+from time import time
 
-import numpy as np
-from torch.utils.tensorboard import SummaryWriter
 import torch
-
-from gail_airl_ppo.env import make_env
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Trainer:
@@ -56,7 +53,7 @@ class Trainer:
         self.start_time = time()  # 开始训练的时间戳
         t = 0  # 每个回合的时间步
 
-        self.algo.supervised_update_actor(5000, writer=self.writer, eval_freq=100)
+        self.algo.direct_update_actor(5000, writer=self.writer, eval_freq=100)
 
         # state = self.env.reset().copy()  # 初始化环境
         #

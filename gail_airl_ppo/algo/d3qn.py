@@ -10,12 +10,9 @@ import random
 import numpy as np
 import torch.nn.functional
 from torch import nn
-from torch.optim import lr_scheduler
-from torch.utils.data import TensorDataset, DataLoader
 
 from gail_airl_ppo.algo.base import Algorithm
 from gail_airl_ppo.buffer import SerializedBuffer
-from gail_airl_ppo.memory import Memory
 from gail_airl_ppo.network.dueLing_net import DuelingNet
 from gail_airl_ppo.prioritized_memory import PrioritizedMemory
 
@@ -190,8 +187,8 @@ class D3QN(Algorithm):
         self.optimizer.step()
         writer.add_scalar('loss/actor', loss.item(), self.learning_steps)
 
-    def supervised_update_actor(self, epochs, writer, eval_freq=None, fix=True):
-        """监督学习的方式进行模仿"""
+    def direct_update_actor(self, epochs, writer, eval_freq=None, fix=True):
+        """直接进行模仿"""
         optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
         if fix:
             for i in self.actor.cnn_layer.parameters():

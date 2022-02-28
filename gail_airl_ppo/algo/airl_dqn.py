@@ -36,10 +36,8 @@ class AIRL_DQN(D3QN):
 
     def update(self, writer):
         self.learning_steps += 1
-
         for _ in range(self.epoch_disc):
             self.learning_steps_disc += 1
-
             # Samples from current policy's trajectories.
             samples = self.buffer.sample()
             states, actions, _, dones, next_states = self.discompose_sample(samples)
@@ -53,11 +51,11 @@ class AIRL_DQN(D3QN):
             # 计算专家行为的对数概率
             with torch.no_grad():
                 log_pis_exp = self.actor.evaluate_log_pi(states_exp, actions_exp.argmax(1).unsqueeze_(1))
-            # Update discriminator.
-            self.update_disc(
-                states, dones, log_pis, next_states, states_exp,
-                dones_exp, log_pis_exp, next_states_exp, writer
-            )
+            # - Update discriminator.
+            # self.update_disc(
+            #     states, dones, log_pis, next_states, states_exp,
+            #     dones_exp, log_pis_exp, next_states_exp, writer
+            # )
 
         # We don't use reward signals here,
         samples = self.buffer.sample()
@@ -74,7 +72,7 @@ class AIRL_DQN(D3QN):
 
         # Update actor using estimated rewards.
         # before_params = deepcopy(self.actor.state_dict())
-        self.update_actor(states, actions, rewards, dones, next_states, writer)
+        # - self.update_actor(states, actions, rewards, dones, next_states, writer)
         # update_sim = self.actions_similarity(self.expert_buffer)  # 更新后的相似度
         # if update_sim < sim - 0.02:
         #     # 相似度减小的不更新

@@ -1,0 +1,14 @@
+bot_id: 5c0e0b4be0008d16c8471a9f , pair length: 88515 , random similarity: 16.147233010076604 %
+bot_id: 5cc0375d35f461309c280504 , pair length: 74959 , random similarity: 15.745324386318703 %
+bot_id: 5c20862abcf3f64c76e40316 , pair length: 89021 , random similarity: 16.87860830703044 %
+bot_id: 5ac5d4c6611cfd778a04676f , pair length: 87539 , random similarity: 17.11943058517781 %
+bot_id: 568507529aab81be75ae4316 , pair length: 88033 , random similarity: 16.822164773572524 %
+bot_id: 5b0d1af97307073b57294dd2 , pair length: 88220 , random similarity: 17.967884576388577 %
+bot_id: 5cda1c4bd2337e01c79b64ec , pair length: 68640 , random similarity: 17.537623874994196 %
+bot_id: 5ac1075cc5d5e3196fc6ea48 , pair length: 88069 , random similarity: 17.817722096533267 %
+bot_id: 5f60675c2b606f4b5f8eb3bc , pair length: 80876 , random similarity: 19.04974362789399 %
+bot_id: 5bd0358b0681335cc1f44e28 , pair length: 87535 , random similarity: 19.472848175295653 %
+bot_id: 5c8b8a97836522250220bf5e , pair length: 87451 , random similarity: 21.131800866181745 %
+bot_id: 5c0e0b4be0008d16c8471a9f , pair length: 88542 , random similarity: 16.039407984231936 %
+bot_id: 5af87c9a14f1110f6826fef4 , pair length: 86924 , random similarity: 18.39786117004171 %
+bot_id: 5e74541be952081b8838a26a , pair length: 87625 , random similarity: 19.84263787544573 %

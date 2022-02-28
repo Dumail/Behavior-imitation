@@ -10,17 +10,15 @@ import random
 from collections import OrderedDict
 from copy import deepcopy
 
-import numpy as np
+import matplotlib.ticker as mticker
 import torch
 from matplotlib import pyplot as plt
-import matplotlib.ticker as mticker
 from tensorboardX import SummaryWriter
 
 from bot import get_random_start, test_actor
 from gail_airl_ppo.algo.airl_dqn import AIRL_DQN
 from gail_airl_ppo.algo.compare import Supervised
 from gail_airl_ppo.buffer import SerializedBuffer
-from gail_airl_ppo.env import make_env
 from reversi_env import ReversiEnv
 
 BOT_NAMES = ['CAB', 'SHA', 'RAM', 'RVB', 'LEB', 'RVT']
@@ -66,11 +64,9 @@ class MAIRL:
         """
         epoch = self.inner_epochs if epoch == 0 else epoch
 
-        self.model.supervised_update_actor(epoch, self.writer, fix=True)
-        return
+        # return
         # 以子任务学习率训练子任务模型
         # self.model.train(self.inner_epochs, l_rate=self.inner_steps_size, batch_size=batch_size)
-
         t = 0  # 每个回合的时间步
         # step = 0
         # for e in range(self.inner_epochs):
@@ -86,6 +82,7 @@ class MAIRL:
                 self.model.update(self.writer)
                 # if t == 0:  # 回合结束
                 #     break
+        self.model.direct_update_actor(epoch, self.writer, fix=True)
 
     def meta_train(self, epoch=300, num_tasks=3, save_actor_file="../../weights/mairl_actor.pth",
                    save_disc_file="../../weights/mairl_disc.pth"):
@@ -117,7 +114,7 @@ class MAIRL:
 
             self.save(save_actor_file, save_disc_file)
 
-    def train(self, task, epoch=10, number=5, train_number=0, save=True):
+    def train(self, task, epoch=10, number=5, train_number=0, save=True, is_out_list=False):
         # 固定CNN层不训练
         for i in self.model.actor.cnn_layer.parameters():
             i.requires_grad = False
@@ -131,18 +128,20 @@ class MAIRL:
         # print(self.model.expert_buffer.states.shape)
         # for g in self.model.optimizer.param_groups:
         #     g['lr'] = 1e-3
-
+        sim_list = []
         max_sim = 0
         for i in range(epoch):
             print(i)
-            self.train_subtask(task, epoch // 50)
+            # self.train_subtask(task, epoch // 50)
+            self.train_subtask(task)
             # for j in range(9):
             #     states_exp, actions_exp = self.model.expert_buffer.states[j*240:(j+1)*240], self.model.expert_buffer.actions[j*240:(j+1)*240]
             #     self.model.supervised_update_actor(states_exp, actions_exp, self.writer)
             # self.evaluate(self.env)
             # print("Train action similarity: ", self.actions_similarity(task.expert_buffer) * 100, "%")  # 计算元模型在该示例上的相似度
             test_sim = self.actions_similarity(task.test_expert_buffer) * 100
-            print("Test action similarity: ", test_sim, "%")  # 计算元模型在该示例上的相似度
+            # print("Test action similarity: ", test_sim, "%")  # 计算元模型在该示例上的相似度
+            sim_list.append(test_sim)
             if test_sim > max_sim:
                 max_sim = test_sim
                 if save:
@@ -151,7 +150,10 @@ class MAIRL:
         if save:
             with open("sim.txt", 'a') as f:
                 f.write(" ".join(["number:", str(number), ", max sim:", str(max_sim)]) + "\n")
-        return max_sim
+        if is_out_list:
+            return sim_list
+        else:
+            return max_sim
 
     def actions_similarity(self, expert_buffer):
         """计算行为相似度"""
@@ -228,14 +230,16 @@ def bot_plot(buffer_expert, buffer_expert_test, epoch=50, bot_number=5):
     mairl_sims = []
 
     for num in numbers:
-        mairl.load("../../weights/mairl_actor.pth", "../../weights/mairl_disc.pth")
+        mairl.load("../../weights/mairl_actor_" + str(bot_number) + ".pth",
+                   "../../weights/mairl_disc_" + str(bot_number) + ".pth")
         max_sim = mairl.train(Task(buffer_expert, buffer_expert_test), epoch, bot_number, num, save=False)
         mairl_sims.append(max_sim)
 
     supervised_sims = []
     for num in numbers:
         supervised = Supervised(buffer_expert, buffer_expert_test, device=mairl.device)
-        max_sim = supervised.train(epoch + 150, number=num)
+        max_sim = supervised.train(9000 + epoch * 10, number=num, start_eval=0)
+        # max_sim = supervised.train(epoch * 10, number=num)
         supervised_sims.append(max_sim)
 
     with open("plot.txt", 'a') as f:
@@ -243,6 +247,34 @@ def bot_plot(buffer_expert, buffer_expert_test, epoch=50, bot_number=5):
             map(str, supervised_sims)) + "\n")
 
     plot(bot_number, mairl_sims, supervised_sims)
+
+
+def epoch_plot(buffer_expert, buffer_expert_test, max_epoch, number=300, bot_number=1):
+    mairl.load("../../weights/mairl_actor_" + str(bot_number) + ".pth",
+               "../../weights/mairl_disc_" + str(bot_number) + ".pth")
+    sims = mairl.train(Task(buffer_expert, buffer_expert_test), max_epoch, bot_number, number, save=False,
+                       is_out_list=True)
+
+    supervised = Supervised(buffer_expert, buffer_expert_test, device=mairl.device)
+    super_sims = supervised.train(max_epoch * 10, number=number, start_eval=0, is_out_list=True)
+    # super_sims = supervised.train(max_epoch * 10, number=number, is_out_list=True)
+
+    x = list(range(0, max_epoch * 10, 10))
+    # x_index = [str(i * 10) for i in x]
+    plt.plot(x, sims, "b-", label="our method")
+    plt.plot(x, super_sims, "g-", label="supervised method")
+
+    plt.axhline(y=BASELINES[bot_number], ls=':', c="red", label="baseline")
+    plt.legend(shadow=True, fontsize=12)
+    plt.xlabel("Number of iterations", fontsize=15)
+    plt.ylabel("Actions similarity", fontsize=15)
+    plt.yticks(fontsize=15)
+    # plt.xticks(x, x_index, fontsize=15)
+    plt.gca().yaxis.set_major_formatter(mticker.FormatStrFormatter('%d %%'))
+    plt.title("Bot " + BOT_NAMES[bot_number], fontsize=17)
+    plt.tight_layout()
+    plt.savefig(BOT_NAMES[bot_number] + "_epochs.eps")
+    plt.show()
 
 
 def plot(bot_number, mairl_sims, supervised_sims):
@@ -259,7 +291,7 @@ def plot(bot_number, mairl_sims, supervised_sims):
     plt.yticks(fontsize=15)
     plt.gca().yaxis.set_major_formatter(mticker.FormatStrFormatter('%d %%'))
     plt.xticks(x, x_index, fontsize=15)
-    plt.title("BOT " + BOT_NAMES[bot_number], fontsize=17)
+    plt.title("Bot " + BOT_NAMES[bot_number], fontsize=17)
     plt.tight_layout()
     plt.savefig(BOT_NAMES[bot_number] + "sim.eps")
     plt.show()
@@ -272,9 +304,9 @@ def sims_test():
         save_actor_file = "../../weights/mairl_actor_" + str(num) + ".pth"
         save_disc_file = "../../weights/mairl_disc_" + str(num) + ".pth"
         mairl_test = MAIRL(env, tasks, device)
-        # mairl_test.meta_train(300,save_actor_file, save_disc_file)
-        # mairl_test.load(save_actor_file, save_disc_file)
-        mairl_test.train(tasks[num], 500, num + 1)
+        mairl_test.meta_train(300, 3, save_actor_file, save_disc_file)
+        mairl_test.load(save_actor_file, save_disc_file)
+        mairl_test.train(tasks[num], 500, num + 1, train_number=500)
 
 
 if __name__ == '__main__':
@@ -327,6 +359,13 @@ if __name__ == '__main__':
     bot_plot(buffer_expert4, buffer_expert4_test, 500, 3)
     bot_plot(buffer_expert5, buffer_expert5_test, 500, 4)
     bot_plot(buffer_expert6, buffer_expert6_test, 500, 5)
+
+    epoch_plot(buffer_expert1, buffer_expert1_test, 500, 250, 0)
+    epoch_plot(buffer_expert2, buffer_expert2_test, 500, 250, 1)
+    epoch_plot(buffer_expert3, buffer_expert3_test, 500, 250, 2)
+    epoch_plot(buffer_expert4, buffer_expert4_test, 500, 250, 3)
+    epoch_plot(buffer_expert5, buffer_expert5_test, 500, 250, 4)
+    epoch_plot(buffer_expert6, buffer_expert6_test, 500, 250, 5)
 
     # plot_file = open("plot.txt", 'r')
     # lines = plot_file.readlines()[-6:]

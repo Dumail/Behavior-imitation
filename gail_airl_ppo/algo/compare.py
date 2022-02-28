@@ -5,9 +5,10 @@
 # @Email   : pan.chaofan@foxmail.com
 # @File    : compare.py
 # @Software: PyCharm
-from gail_airl_ppo.buffer import SerializedBuffer
-from torch import nn
 import torch
+from torch import nn
+
+from gail_airl_ppo.buffer import SerializedBuffer
 
 
 class Supervised:
@@ -41,7 +42,7 @@ class Supervised:
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.02)
         self.loss_fn = nn.CrossEntropyLoss()
 
-    def train(self, epoch, eval_freq=None, number=-1):
+    def train(self, epoch, eval_freq=None, number=-1, is_out_list=False, start_eval=0):
         if number != -1:
             train_dataset = self.train_dataset.reduce(number)
         else:
@@ -51,6 +52,7 @@ class Supervised:
 
         print("Lenght:", len(state_exp))
         max_metric = 0.0
+        metric_list = []
         for e in range(epoch):
             q_value = self.net(state_exp)
             loss = self.loss_fn(q_value, action_exp)
@@ -58,15 +60,21 @@ class Supervised:
             loss.backward()
             self.optimizer.step()
 
-            metric = self.evaluate()
-            if max_metric < metric:
-                max_metric = metric
+            if e >= start_eval:
+                metric = self.evaluate()
+                if max_metric < metric:
+                    max_metric = metric
+                if e % 10 == 0:
+                    metric_list.append(metric)
             if eval_freq is not None and e % eval_freq == 0:
                 print("Epoch:", e)
                 print("Train action similarity:", self.actions_similarity(state_exp, action_exp), "%")
                 print("Test action similarity:", metric, "%")
         print("Max test action similarity:", max_metric, "%")
-        return max_metric
+        if is_out_list:
+            return metric_list
+        else:
+            return max_metric
 
     def evaluate(self):
         state_exp = self.test_dataset.states
