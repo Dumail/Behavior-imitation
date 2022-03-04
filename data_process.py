@@ -5,18 +5,18 @@
 # @Email   : pan.chaofan@foxmail.com
 # @File    : data_process.py
 # @Software: PyCharm
+import itertools
 import json
+import multiprocessing
 import os
 import pickle
 import random
 
 import numpy as np
-import torch
-import itertools
-from gail_airl_ppo.algo.reversi_algo import ListAlgorithm, ReversiAlgo
-from gail_airl_ppo.buffer import Buffer
+
+from algo.algo.reversi_algo import ListAlgorithm, ReversiAlgo
+from algo.buffer import Buffer
 from reversi_env import ReversiEnv
-import multiprocessing
 
 
 def json_obj_process(json_obj, bot_id):
@@ -235,33 +235,33 @@ def get_results_dir(dirs, bot_id, opponent_id):
 
 if __name__ == '__main__':
     # # "60404a8181fb3b738e80c6d1",
-    bot_id = "5e74541be952081b8838a26a"
-    # bot_ids = ["5c0e0b4be0008d16c8471a9f", "5cc0375d35f461309c280504", "5c20862abcf3f64c76e40316",
-    #            "5ac5d4c6611cfd778a04676f", "568507529aab81be75ae4316"]
+    # bot_id = "5e74541be952081b8838a26a"
+    bot_ids = ["5c0e0b4be0008d16c8471a9f", "5cc0375d35f461309c280504", "5c20862abcf3f64c76e40316",
+               "5ac5d4c6611cfd778a04676f", "568507529aab81be75ae4316", "5e74541be952081b8838a26a"]
     # # bot_ids = ["5c0e0b4be0008d16c8471a9f"]
-    # for bot_id in bot_ids:
-    print("Processing bot:", bot_id)
-    train_data, test_data = get_bot_data('data', bot_id)
-    print("Get", len(train_data) + len(test_data), "matches.")
-    f_train = open('bots_first/' + bot_id + '_train.pkl', 'wb')
-    pickle.dump(train_data, f_train)  # 存储训练数据
-    f_train.close()
-    f_test = open('bots_first/' + bot_id + '_test.pkl', 'wb')
-    pickle.dump(test_data, f_test)  # 存储测试数据
-    f_test.close()
+    for bot_id in bot_ids:
+        print("Processing bot:", bot_id)
+        train_data, test_data = get_bot_data('data', bot_id)
+        print("Get", len(train_data) + len(test_data), "matches.")
+        f_train = open('bots_first/' + bot_id + '_train.pkl', 'wb')
+        pickle.dump(train_data, f_train)  # 存储训练数据
+        f_train.close()
+        f_test = open('bots_first/' + bot_id + '_test.pkl', 'wb')
+        pickle.dump(test_data, f_test)  # 存储测试数据
+        f_test.close()
 
-    file_name_train = 'bots_first/' + bot_id + '_train.pkl'
-    pair_len_train, sim_train, buffer_train = get_sim_and_buffer(file_name_train)
-    buffer_train.save('buffers/' + bot_id + '_size2400_train.pth')
+        file_name_train = 'bots_first/' + bot_id + '_train.pkl'
+        pair_len_train, sim_train, buffer_train = get_sim_and_buffer(file_name_train)
+        buffer_train.save('buffers/' + bot_id + '_size2400_train.pth')
 
-    file_name_test = 'bots_first/' + bot_id + '_test.pkl'
-    pair_len_test, sim_test, buffer_test = get_sim_and_buffer(file_name_test)
-    buffer_test.save('buffers/' + bot_id + '_size800_test.pth')
+        file_name_test = 'bots_first/' + bot_id + '_test.pkl'
+        pair_len_test, sim_test, buffer_test = get_sim_and_buffer(file_name_test)
+        buffer_test.save('buffers/' + bot_id + '_size800_test.pth')
 
-    with open("bot_info.txt", 'a') as f:
-        f.write(" ".join(
-            ["bot_id:", str(bot_id), ", pair length:", str(pair_len_train + pair_len_test), ", random similarity:",
-             str((sim_train + sim_test) / 2 * 100), '%']) + '\n')
+        with open("bot_info.txt", 'a') as f:
+            f.write(" ".join(
+                ["bot_id:", str(bot_id), ", pair length:", str(pair_len_train + pair_len_test), ", random similarity:",
+                 str((sim_train + sim_test) / 2 * 100), '%']) + '\n')
 
     # bot_ids = ["5c0e0b4be0008d16c8471a9f", "5cc0375d35f461309c280504", "5c20862abcf3f64c76e40316",
     #            "5ac5d4c6611cfd778a04676f", "568507529aab81be75ae4316"]

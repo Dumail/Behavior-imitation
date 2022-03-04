@@ -3,19 +3,18 @@ Game of Reversi
 """
 import os
 import random
-
-from six import StringIO
 import sys
+
 import gym
-from gym import spaces
 import numpy as np
-from gym import error
-from gym.utils import seeding
-
 import torch
+from gym import error
+from gym import spaces
+from gym.utils import seeding
+from six import StringIO
 
-from gail_airl_ppo.algo.reversi_algo import ReversiAlgo
-from gail_airl_ppo.utils import collect_demo
+from algo.algo.reversi_algo import ReversiAlgo
+from algo.utils import collect_demo
 
 
 def reversi_state_wrapper(state):

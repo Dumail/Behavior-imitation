@@ -22,7 +22,7 @@ import random
 import numpy
 import torch
 
-from gail_airl_ppo.algo.reversi_algo import ReversiAlgo
+from algo.algo.reversi_algo import ReversiAlgo
 from reversi_env import ReversiEnv
 
 DIR = ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1))  # 方向向量

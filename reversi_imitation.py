@@ -7,17 +7,13 @@
 # @Software: PyCharm
 import os
 from datetime import datetime
-from copy import deepcopy
 
-import numpy as np
-
-from gail_airl_ppo.algo import AIRL
-from gail_airl_ppo.algo.airl_dqn import AIRL_DQN
-from gail_airl_ppo.algo.reversi_algo import ReversiAlgo
-from gail_airl_ppo.buffer import SerializedBuffer
-from gail_airl_ppo.trainer import Trainer
-from reversi_env import ReversiEnv
 import torch
+
+from algo.algo.irl_dqn import IRL_DQN
+from algo.buffer import SerializedBuffer
+from algo.trainer import Trainer
+from reversi_env import ReversiEnv
 
 
 def train_imitation():
@@ -56,7 +52,7 @@ def train_imitation():
     #     discrete=True,  # 动作空间离散
     #     cnn=True  # 使用cnn处理棋盘
     # )
-    algo = AIRL_DQN(
+    algo = IRL_DQN(
         expert_buffer=buffer_expert,
         test_expert_buffer=test_buffer_expert,
         state_shape=env.observation_space.shape,

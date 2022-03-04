@@ -11,8 +11,8 @@ from torch import nn
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader, TensorDataset
 
-from gail_airl_ppo.buffer import SerializedBuffer
-from gail_airl_ppo.network.dueLing_net import DuelingNet
+from algo.buffer import SerializedBuffer
+from algo.network.dueLing_net import DuelingNet
 
 state_shape = np.array([3, 8, 8])
 action_shape = np.array([66])

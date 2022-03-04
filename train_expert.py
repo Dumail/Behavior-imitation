@@ -1,11 +1,10 @@
 import os
-import argparse
 from datetime import datetime
-import torch
-import gym
 
-from gail_airl_ppo.algo.d3qn import D3QN
-from gail_airl_ppo.trainer import Trainer
+import torch
+
+from algo.algo.d3qn import D3QN
+from algo.trainer import Trainer
 from reversi_env import ReversiEnv
 
 if __name__ == '__main__':
